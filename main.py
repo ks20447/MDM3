@@ -11,6 +11,7 @@ def print_hi(name):
     print(x)
     y = np.array([1, 2, 3])
     print(y)
+    print("Hello World")
 
 
 if __name__ == '__main__':
