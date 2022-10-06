@@ -1,4 +1,4 @@
-# Important: Only push commits in the test branch to avoid breaking master file
+# Important: Only push commits in the test branch to avoid breaking master file, always git pull first
 import simpy as sp
 import random as rn
 import numpy as np
@@ -10,6 +10,7 @@ MAX_BUYERS = 10
 def buyer(num, income, credit, documents, defaulting, status, asset):
     # Buyer function used to assign attributes
     # This will be passed into the finance_documents/lenders classes
+    # Will require an env variable also
     global TOTAL_BUYERS
     TOTAL_BUYERS += 1
     print(f"Buyer {num}; income £{income}k; creditworthiness {credit}%; documents {documents}; defaulting {defaulting}%"
@@ -34,7 +35,7 @@ def documents_generate():
 
 def asset_generation(value):
     print(value)
-    asset = round(value*0.1, 1)
+    asset = round(value*0.1, 1)     # to be swapped with asset generation procedure
     return asset
 
 
