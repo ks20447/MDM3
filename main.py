@@ -1,22 +1,52 @@
 # Important: Only push commits in the test branch to avoid breaking master file
-
 import simpy as sp
-import numpy as np
 import random as rn
+import numpy as np
+
+TOTAL_BUYERS = 0
+MAX_BUYERS = 10
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
-    env = sp.Environment()
-    x = rn.randint(1, 10)
-    print(x)
-    y = np.array([1, 2, 3])
-    print(y)
-    print("Hello World")
+def buyer(num, income, credit, documents, defaulting, status, asset):
+    # Buyer function used to assign attributes
+    # This will be passed into the finance_documents/lenders classes
+    global TOTAL_BUYERS
+    TOTAL_BUYERS += 1
+    print(f"Buyer {num}; income £{income}k; creditworthiness {credit}%; documents {documents}; defaulting {defaulting}%"
+          f"; current status \"{status}\"; desired asset £{asset}k ")
+
+
+def income_generate():
+    income = round(max(1, np.random.normal(10, 4)), 1)  # to be swapped for actual data distribution
+    return income
+
+
+def credit_generate():
+    creditworthiness = np.random.randint(0, 100)    # to be swapped for credit score machine learning
+    defaulting = np.random.randint(0, 10)           # to be swapped for defaulting machine learning
+    return creditworthiness, defaulting
+
+
+def documents_generate():
+    documents = 1111    # to be swapped with documentation algorithm
+    return documents
+
+
+def asset_generation(value):
+    print(value)
+    asset = round(value*0.1, 1)
+    return asset
 
 
 if __name__ == '__main__':
-    print_hi('PyCharm')
+    print('Start successful')
+    for i in range(MAX_BUYERS):
+        buyer_income = income_generate()
+        [buyer_credit, buyer_defaulting] = credit_generate()
+        buyer_documents = documents_generate()
+        buyer_asset = asset_generation(buyer_income)
+        buyer(i, buyer_income, buyer_credit, buyer_documents, buyer_defaulting, "Applying", buyer_asset)
+
+    print(TOTAL_BUYERS)
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
