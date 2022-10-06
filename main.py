@@ -1,10 +1,11 @@
-# Important: Only push commits in the test branch to avoid breaking master file, always git pull first
+# Important: Only push commits in the test branch to avoid breaking master file
+# Always git pull from master first, then switch to branch to commit
 import simpy as sp
 import random as rn
 import numpy as np
 
-TOTAL_BUYERS = 0
-MAX_BUYERS = 10
+TOTAL_BUYERS = 0    # Counter for the total buyers generated
+MAX_BUYERS = 10     # The maximum number of buyers that can exist at any time
 
 
 def buyer(num, income, credit, documents, defaulting, status, asset):
@@ -24,7 +25,7 @@ def income_generate():
 
 def credit_generate():
     creditworthiness = np.random.randint(0, 100)    # to be swapped for credit score machine learning
-    defaulting = np.random.randint(0, 10)           # to be swapped for defaulting machine learning
+    defaulting = np.random.randint(0, 10)           # to be swapped for defaulting score machine learning
     return creditworthiness, defaulting
 
 
