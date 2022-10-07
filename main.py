@@ -3,6 +3,8 @@
 import simpy as sp
 import random as rn
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
 TOTAL_BUYERS = 0    # Counter for the total buyers generated
 MAX_BUYERS = 10     # The maximum number of buyers that can exist at any time
@@ -10,7 +12,7 @@ MAX_BUYERS = 10     # The maximum number of buyers that can exist at any time
 
 def buyer(num, income, credit, documents, defaulting, status, asset):
     # Buyer function used to assign attributes
-    # This will be passed into the finance_documents/lenders classes
+    # This will be passed into the lenders class
     # Will require an env variable also
     global TOTAL_BUYERS
     TOTAL_BUYERS += 1
@@ -19,7 +21,15 @@ def buyer(num, income, credit, documents, defaulting, status, asset):
 
 
 def income_generate():
-    income = round(max(1, np.random.normal(10, 4)), 1)  # to be swapped for actual data distribution
+    # randomly chooses an income value based on ONS income distribution data in the UK
+    income_table = pd.read_table('IncomeDistribution.txt')
+    income_band = np.array(income_table[income_table.columns[0]])
+    count = np.array(income_table[income_table.columns[1]])
+    income_data = []
+    for i in range(len(income_band)):
+        income_data.append([income_band[i]] * count[i])
+    income_data = np.concatenate(income_data)
+    income = rn.choice(income_data)
     return income
 
 
