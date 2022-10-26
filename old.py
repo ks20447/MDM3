@@ -51,6 +51,7 @@ class Customer:
         else:
             self.eligible = False
             num_rejected += 1
+        self.wait = np.random.normal(14, 6, None)
 
 
 #class Buyer:
