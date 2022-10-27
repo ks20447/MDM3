@@ -14,7 +14,7 @@ MAX_LENDERS = 3
 num_accepted = 0
 num_rejected = 0
 all_buyers_dict = []
-fields = ['num', 'income', 'house_owned', 'credit', 'married', 'gender', 'age', 'employed_time', 'fam_memb']
+fields = ['num', 'Client_Income', 'House_Own', 'Credit_Amount', 'Client_Marital_Status', 'Client_Gender', 'Age_Days', 'Employed_Days', 'Client_Family_Members']
 
 class Customer:
     def __init__(self, num, income, credit_band):
