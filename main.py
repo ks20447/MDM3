@@ -33,10 +33,18 @@ class Customer:
         self.Client_Family_Members = choice([0, 1, 2, 3, 4, 5, 6],
                                             p=[0.2727, 0.3333, 0.1616, 0.1414, 0.0606, 0.0202, 0.0102])
         self.wait = np.random.normal(14, 6, None)
-        if self.Age_Days > 23725:
-            self.Employed_Days = rn.randint(0, 17155)
-        elif self.Age_Days <= 23725:
-            self.Employed_Days = rn.randint(0, self.Age_Days - 6570)
+        if 6570 <= self.Age_Days <= 7300:
+            self.Employed_Days = 292
+        elif 7300 < self.Age_Days <= 8760:
+            self.Employed_Days = 475
+        elif 9125 <= self.Age_Days <= 12410:
+            self.Employed_Days = 1168
+        elif 12775 <= self.Age_Days <= 16060:
+            self.Employed_Days = 1935
+        elif 6425 <= self.Age_Days <= 19710:
+            self.Employed_Days = 2847
+        elif 20075 <= self.Age_Days <= 23360:
+            self.Employed_Days = 3760
         possession_docs = rn.choices([True, False], [95, 5], k=3)
         if all(possession_docs):
             self.eligible = True
