@@ -1,4 +1,6 @@
 import random as rn
+
+import numpy as np
 from numpy.random import choice
 import time
 from colorama import Fore, Style
@@ -11,10 +13,21 @@ ALL_LENDERS = []
 TOTAL_CUSTOMERS = 20000
 NUM_BUYERS = 0
 ALL_ASSETS = np.array([5000, 6000, 7000, 8000, 9000, 10000, 12500, 15000, 17500, 20000])
-STANDARD_RATES = np.array([7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]) - 2
+STANDARD_RATES = np.array([9, 9.5, 10, 10.5, 11, 12, 13, 14, 15, 16])
+RATES_DICT = {
+    "Large": STANDARD_RATES,
+    "Medium": STANDARD_RATES + 2,
+    "Small": STANDARD_RATES + 4
+            }
+DELAY_DICT = {
+    "Large": [2.1, 0.2],
+    "Medium": [1.9, 0.2],
+    "Small": [1.8, 0.2]
+            }
 SIMULATION_TIME = 120
 NUM_SIMS = 1
-MARKET_VALUE = ALL_ASSETS[-1] * SIMULATION_TIME * 100
+NUM_ITER = 1
+MARKET_VALUE = ALL_ASSETS[-1] * SIMULATION_TIME
 
 
 class Customer:
@@ -26,7 +39,7 @@ class Customer:
         self.Client_Gender = choice(['Male', 'Female'], p=[0.50, 0.50])
         self.Age_Days = choice(choice([range(18, 20), range(20, 24), range(25, 29), range(30, 34),
                                        range(35, 44), range(45, 54), range(55, 64)],
-                                      p=[0.0626, 0.1095, 0.1049, 0.1064, 0.2332, 0.2254, 0.1580]))*365
+                                      p=[0.0626, 0.1095, 0.1049, 0.1064, 0.2332, 0.2254, 0.1580])) * 365
         self.Client_Family_Members = choice([0, 1, 2, 3, 4, 5, 6],
                                             p=[0.2727, 0.3333, 0.1616, 0.1414, 0.0606, 0.0202, 0.0102])
         self.wait = np.random.normal(14, 6, None)
@@ -54,10 +67,10 @@ class Buyer:
     def __init__(self, num, income, credit_band, asset, defaulting, month):
         self.num = num
         self.income = income
-        self.credit = credit_band                           # Currently randomised
+        self.credit = credit_band  # Currently randomised
         self.asset = asset
         self.offered_asset = 0
-        self.allowance = (self.income*0.3) / 12
+        self.allowance = (self.income * 0.3) / 12
         self.duration = rn.choice([12, 24, 36, 48])
         self.status = "Applying"
         self.eligible = True
@@ -66,6 +79,7 @@ class Buyer:
         self.offer = []
         self.defaulting = (1 - defaulting) / 12
         self.start_month = month
+        self.time_delay = np.random.normal(2, 0.5)
 
     def pay_loan(self, counter, lender):
         if self.offered_asset != 0:
@@ -89,20 +103,20 @@ class Buyer:
 
 # Lender object and attributes
 class Lender:
-    def __init__(self, num, credit_limit, max_duration, market_share, rate_increase):
+    def __init__(self, num, credit_limit, max_duration, market_share, size, collusion):
         self.num = num
         self.credit_limit = credit_limit
         self.max_duration = max_duration
-        self.profit = 0
+        self.profit = 0     # (market_share * 0.5) * 1.09**2.5
         self.profit_timeline = []
         self.loss = 0
         self.collateral = 0
         self.collateral_timeline = np.zeros(SIMULATION_TIME)
         self.max_loan = market_share
         self.current_loan = 0
-        self.current_lending = 0
-        self.rates = STANDARD_RATES + rate_increase
-        self.colour = (rn.random(), rn.random(), rn.random())
+        self.current_lending = 0    # market_share * 0.5
+        self.rates = RATES_DICT[size] + collusion*rn.random()
+        self.delay = np.random.normal(DELAY_DICT[size][0], DELAY_DICT[size][1])
 
     # Function for lender to check credit band against their specific credit threshold
     def credit_check(self, buyer):
@@ -179,6 +193,7 @@ def income_generate():
     income = round(income[0])
     return income
 
+
 # def rate_generate(income, asset, credit):
 #     rates_array = np.zeros([3, len(ALL_BANDS)])
 #     for i in range(len(ALL_BANDS)):
@@ -222,7 +237,13 @@ def buyer_setup(index, t, buyers_dataframe):
 
 def lender_setup(sim_num, market_share):
     global ALL_LENDERS
-    ALL_LENDERS.append(Lender(0, 5, 48, market_share * 0.5, sim_num))
+    ALL_LENDERS.append(Lender(0, 3, 48, market_share * 0.4, "Large", 1))
+    ALL_LENDERS.append(Lender(1, 5, 48, market_share * 0.2, "Medium", 1))
+    ALL_LENDERS.append(Lender(2, 5, 48, market_share * 0.2, "Medium", 1))
+    ALL_LENDERS.append(Lender(3, 9, 48, market_share * 0.05, "Small", 1))
+    ALL_LENDERS.append(Lender(4, 9, 48, market_share * 0.05, "Small", 1))
+    ALL_LENDERS.append(Lender(5, 9, 48, market_share * 0.05, "Small", 1))
+    ALL_LENDERS.append(Lender(6, 9, 48, market_share * 0.05, "Small", 1))
 
 
 def ret_2nd_ele(tuple_1):
@@ -237,13 +258,13 @@ def find_nearest(array, value):
 
 def car_depreciation(asset, month_default):
     if month_default < 13:
-        r = 25/12
-        collateral_val = (asset*(1-(r/100))**month_default)
+        r = 25 / 12
+        collateral_val = (asset * (1 - (r / 100)) ** month_default)
     else:
-        asset_at2 = (asset*(1-(25/1200))**11)
+        asset_at2 = (asset * (1 - (25 / 1200)) ** 11)
         month_default -= 12
-        r = 15.6/12
-        collateral_val = (asset_at2*(1-(r/100))**month_default)
+        r = 15.6 / 12
+        collateral_val = (asset_at2 * (1 - (r / 100)) ** month_default) * 0.8
     return collateral_val
 
 
@@ -263,16 +284,21 @@ def generate_offers(all_buyers, all_lenders):
                           f"Loan principle of £{asset} with an "
                           f"interest rate of {offer_rate:.1f}% for {offer_duration} months."
                           f" Total Monthly payments: £{offer_monthly:.2f}")
-                    current_buyer.offer.append((current_lender.num, offer_monthly))
+                    current_buyer.offer.append((current_lender.num, offer_monthly, current_lender.delay))
                     current_buyer.status = "Paying"
                 current_buyer.eligible = True
             else:
                 print(f"Max loans exceeded")
+        temp_offers = []
+        for offers in current_buyer.offer:
+            if offers[2] < current_buyer.time_delay:
+                temp_offers.append(offers)
+            else:
+                print(f"Rejected Offer: Lender {offers[0]}. Verification delay too large")
+        current_buyer.offer = temp_offers
         if current_buyer.offer:
             accepted_offer = min(current_buyer.offer, key=ret_2nd_ele)
-            print(f"Accepted offer: Lender {accepted_offer[0]}. Monthly payments of £{round(accepted_offer[1], 2)}. "
-                  f"Preferred duration - {current_buyer.preferred_duration}. "
-                  f"Preferred asset - {current_buyer.preferred_asset}")
+            print(f"Accepted offer: Lender {accepted_offer[0]}. Monthly payments of £{round(accepted_offer[1], 2)}.")
             current_buyer.offer = accepted_offer
             lender = all_lenders[accepted_offer[0]]
             lender.current_loan += current_buyer.asset
@@ -289,7 +315,7 @@ def loan_payments(month, all_buyers, all_lenders):
         print(f"Lender {lender.num}: Profit/Loss/Collateral" +
               Fore.GREEN + f" +£{round(lender.profit, 2):,}" + Style.RESET_ALL + f" / " +
               Fore.RED + f"-£{round(lender.loss, 2):,}" + Style.RESET_ALL +
-              f" / £{round(lender.collateral,2):,}")
+              f" / £{round(lender.collateral, 2):,}")
         print(f"Total amount borrowed by customers: £{lender.current_loan:,}")
         print(f"Current lending: £{round(lender.current_lending, 2):,}")
         print(f"")
@@ -298,32 +324,45 @@ def loan_payments(month, all_buyers, all_lenders):
 
 def simulation(sim_time, num_customers):
     global ALL_BUYERS, ALL_LENDERS
-    profit_lending = np.zeros((NUM_SIMS, sim_time))
-    profit_absolute = np.zeros((NUM_SIMS, sim_time))
-    for i in range(NUM_SIMS):
-        ALL_BUYERS, ALL_LENDERS = [], []
-        lender_setup(i, MARKET_VALUE)
-        index = 0
-        customer_setup(num_customers)
-        xd = predict_from_generated_customer("customers_dataframe.csv", "Train_Dataset.csv")
-        xd = xd.loc[xd["Band"] != 10]
-        xd.to_csv("buyers_dataframe.csv")
-        buyers_dataframe = pd.read_csv("buyers_dataframe.csv")
-        num_buyers = int(len(buyers_dataframe)/sim_time)
-        for t in range(sim_time):
-            print(Fore.BLUE + f"Month {t} (Iteration {i})" + Style.RESET_ALL)
-            if t % 1 == 0:
-                buyer_setup(index, t, buyers_dataframe[num_buyers*index:num_buyers+(num_buyers*index)])
-                current_buyers = ALL_BUYERS[num_buyers*index:num_buyers+(num_buyers*index)]
-                generate_offers(current_buyers, ALL_LENDERS)
-                index += 1
-                print(f"")
-            loan_payments(t, ALL_BUYERS, ALL_LENDERS)
-        # plot_profit(ALL_LENDERS, SIMULATION_TIME)
-        # plot_collateral(ALL_LENDERS, SIMULATION_TIME)
-        profit_lending[i] = ALL_LENDERS[0].profit_timeline/ALL_LENDERS[0].current_loan
-        profit_absolute[i] = ALL_LENDERS[0].profit_timeline
-    plot_all_timelines(profit_lending, profit_absolute, SIMULATION_TIME)
+    # revenue = np.zeros((NUM_SIMS, sim_time))
+    # ratios = np.zeros((NUM_SIMS, sim_time))
+    # final_revenues = np.zeros(NUM_SIMS)
+    # average_all = np.zeros((NUM_ITER, NUM_SIMS))
+    # final_ratios = np.zeros(NUM_SIMS)
+    for j in range(NUM_ITER):
+        final_revenue = np.zeros((NUM_SIMS, 7))
+        final_loss = np.zeros((NUM_SIMS, 7))
+        final_collateral = np.zeros((NUM_SIMS, 7))
+        for i in range(NUM_SIMS):
+            ALL_BUYERS, ALL_LENDERS = [], []
+            lender_setup(i, MARKET_VALUE)
+            index = 0
+            customer_setup(num_customers)
+            xd = predict_from_generated_customer("customers_dataframe.csv", "Train_Dataset.csv")
+            xd = xd.loc[xd["Band"] != 10]
+            xd.to_csv("buyers_dataframe.csv")
+            buyers_dataframe = pd.read_csv("buyers_dataframe.csv")
+            # num_buyers = int(len(buyers_dataframe) / sim_time)
+            num_buyers = 200
+            for t in range(sim_time):
+                print(Fore.BLUE + f"Month {t} (Iteration {i})" + Style.RESET_ALL)
+                if t % 1 == 0:
+                    buyer_setup(index, t, buyers_dataframe[num_buyers * index:num_buyers + (num_buyers * index)])
+                    current_buyers = ALL_BUYERS[num_buyers * index:num_buyers + (num_buyers * index)]
+                    generate_offers(current_buyers, ALL_LENDERS)
+                    index += 1
+                    print(f"")
+                loan_payments(t, ALL_BUYERS, ALL_LENDERS)
+            for k in range(len(ALL_LENDERS)):
+                final_revenue[i][k] = ALL_LENDERS[k].profit - ALL_LENDERS[k].current_loan
+                final_loss[i][k] = ALL_LENDERS[k].loss
+                final_collateral[i][k] = ALL_LENDERS[k].collateral
+        plot_performance(final_revenue, final_loss, final_collateral)
+        #     revenue[i] = ALL_LENDERS[0].profit_timeline
+        #     ratios[i] = ALL_LENDERS[0].profit_timeline / ALL_LENDERS[0].current_loan
+        #     final_revenues[i] = revenue[i, -1]
+        #     final_ratios[i] = ratios[i, -1]
+        # plot_finals(final_revenues, final_ratios, NUM_SIMS)
 
 
 if __name__ == '__main__':
