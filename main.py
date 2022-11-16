@@ -1,11 +1,12 @@
 import random as rn
-
-import numpy as np
 from numpy.random import choice
 import time
 from colorama import Fore, Style
 from LogisticRegression import *
 from Results import *
+
+rn.seed(10)
+np.random.seed(10)
 
 # Simulation parameters and counters
 ALL_BUYERS = []
@@ -27,7 +28,7 @@ DELAY_DICT = {
 SIMULATION_TIME = 120
 NUM_SIMS = 1
 NUM_ITER = 1
-MARKET_VALUE = ALL_ASSETS[-1] * SIMULATION_TIME
+MARKET_VALUE = 5000000
 
 
 class Customer:
@@ -70,7 +71,7 @@ class Buyer:
         self.credit = credit_band  # Currently randomised
         self.asset = asset
         self.offered_asset = 0
-        self.allowance = (self.income * 0.3) / 12
+        self.allowance = (self.income * 0.4) / 12
         self.duration = rn.choice([12, 24, 36, 48])
         self.status = "Applying"
         self.eligible = True
@@ -94,11 +95,11 @@ class Buyer:
                       f"Total remaining: £{round(total, 2)} ")
                 collateral = car_depreciation(self.asset, counter - self.start_month)
                 lender.loss += (total - collateral)
-                lender.collateral += collateral
+                lender.collateral_sum += collateral
                 lender.collateral_timeline[counter] = collateral
                 self.status = 'Defaulted'
             else:
-                lender.profit += monthly
+                lender.monthly_sum += monthly
 
 
 # Lender object and attributes
@@ -107,13 +108,13 @@ class Lender:
         self.num = num
         self.credit_limit = credit_limit
         self.max_duration = max_duration
-        self.profit = 0     # (market_share * 0.5) * 1.09**2.5
+        self.monthly_sum = 0     # (market_share * 0.5) * 1.09**2.5
         self.profit_timeline = []
         self.loss = 0
-        self.collateral = 0
+        self.collateral_sum = 0
         self.collateral_timeline = np.zeros(SIMULATION_TIME)
         self.max_loan = market_share
-        self.current_loan = 0
+        self.loan_out_sum = 0
         self.current_lending = 0    # market_share * 0.5
         self.rates = RATES_DICT[size] + collusion*rn.random()
         self.delay = np.random.normal(DELAY_DICT[size][0], DELAY_DICT[size][1])
@@ -126,33 +127,6 @@ class Lender:
             buyer.status = "Rejected"
         else:
             buyer.status = 'Approved'
-
-    # Function for lender to generate offer to the buyer
-    # def monthly_offer(self, buyer):
-    #     principle = buyer.asset
-    #     allowance = buyer.allowance
-    #     rate = rate_generate(buyer.income, buyer.asset, buyer.credit)
-    #     r = rate / (12*100)
-    #     duration = buyer.duration
-    #     monthly_payments = principle * (r * ((1 + r) ** duration)) / (((1 + r) ** duration) - 1)
-    #     if monthly_payments > allowance and duration == self.max_duration and ALL_ASSETS.index(buyer.asset) == 0:
-    #         print(f"Buyer {buyer.num} (lender {self.num}): No affordable assets")
-    #         buyer.eligible = False
-    #     elif monthly_payments < allowance:
-    #         monthly_payments = monthly_payments
-    #     else:
-    #         while duration < self.max_duration:
-    #             duration += 12
-    #             rate += 0.5
-    #             r = rate / (12*100)
-    #             monthly_payments = principle * (r * ((1 + r) ** duration)) / (((1 + r) ** duration) - 1)
-    #             if monthly_payments < allowance:
-    #                 break
-    #         buyer.preferred_duration = False
-    #         buyer.duration = duration
-    #         if monthly_payments > allowance:
-    #             lower_asset(self.num, buyer, allowance, duration, r)
-    #     return rate, monthly_payments, duration
 
     def monthly_offer(self, buyer):
         principle = buyer.asset
@@ -167,22 +141,6 @@ class Lender:
         return rate, monthly_payments, duration
 
 
-# def lower_asset(num, buyer, allowance, duration, r):
-#     possible_assets = ALL_ASSETS[0:ALL_ASSETS.index(buyer.asset)+1]
-#     possible_assets.reverse()
-#     for principle in possible_assets:
-#         monthly_payments = principle * (r * ((1 + r) ** duration)) / (((1 + r) ** duration) - 1)
-#         if monthly_payments < allowance:
-#             print(f"Buyer {buyer.num} (Lender {num}): Original asset: £{buyer.asset}. Max affordable asset: £{principle}")
-#             buyer.offered_asset = principle
-#             buyer.preferred_asset = False
-#             break
-#         elif monthly_payments > allowance and principle == possible_assets[-1]:
-#             print(f"Unable to offer alternative asset")
-#             buyer.eligible = False
-#     return monthly_payments
-
-
 # Randomly assigns an income value based on ONS income distribution data in the UK
 def income_generate():
     data_average = 13750
@@ -192,21 +150,6 @@ def income_generate():
     income = np.random.lognormal(mean=mean_log_normal, sigma=sigma_log_normal, size=1)
     income = round(income[0])
     return income
-
-
-# def rate_generate(income, asset, credit):
-#     rates_array = np.zeros([3, len(ALL_BANDS)])
-#     for i in range(len(ALL_BANDS)):
-#         for j in range(3):
-#             rates_array[j][i] = ((i + 0.25) * (j + 0.25)) + 9
-#     if income/asset >= rn.randint(2, 4):
-#         ratio = 2
-#     elif income/asset <= rn.random():
-#         ratio = 0
-#     else:
-#         ratio = 1
-#     rate = (rates_array[ratio][credit - 1] + rn.random())
-#     return rate
 
 
 def customer_setup(num_customers):
@@ -237,13 +180,13 @@ def buyer_setup(index, t, buyers_dataframe):
 
 def lender_setup(sim_num, market_share):
     global ALL_LENDERS
-    ALL_LENDERS.append(Lender(0, 3, 48, market_share * 0.4, "Large", 1))
-    ALL_LENDERS.append(Lender(1, 5, 48, market_share * 0.2, "Medium", 1))
-    ALL_LENDERS.append(Lender(2, 5, 48, market_share * 0.2, "Medium", 1))
-    ALL_LENDERS.append(Lender(3, 9, 48, market_share * 0.05, "Small", 1))
-    ALL_LENDERS.append(Lender(4, 9, 48, market_share * 0.05, "Small", 1))
-    ALL_LENDERS.append(Lender(5, 9, 48, market_share * 0.05, "Small", 1))
-    ALL_LENDERS.append(Lender(6, 9, 48, market_share * 0.05, "Small", 1))
+    ALL_LENDERS.append(Lender(0, 4, 48, market_share * 0.4, "Large", 0))
+    ALL_LENDERS.append(Lender(1, 6, 48, market_share * 0.25, "Medium", 1))
+    ALL_LENDERS.append(Lender(2, 6, 48, market_share * 0.15, "Medium", 0))
+    ALL_LENDERS.append(Lender(3, 10, 48, market_share * 0.075, "Small", 1))
+    ALL_LENDERS.append(Lender(4, 10, 48, market_share * 0.065, "Small", 1))
+    ALL_LENDERS.append(Lender(5, 10, 48, market_share * 0.065, "Small", 0))
+    ALL_LENDERS.append(Lender(6, 10, 48, market_share * 0.05, "Small", 1))
 
 
 def ret_2nd_ele(tuple_1):
@@ -272,7 +215,7 @@ def generate_offers(all_buyers, all_lenders):
     for current_buyer in all_buyers:
         for current_lender in all_lenders:
             current_lender.credit_check(current_buyer)
-            if current_lender.max_loan > current_lender.current_lending:
+            if abs(current_lender.max_loan) > abs(current_lender.current_lending):
                 if current_buyer.eligible:
                     offer_rate, offer_monthly, offer_duration = current_lender.monthly_offer(current_buyer)
                 if current_buyer.eligible:
@@ -297,12 +240,23 @@ def generate_offers(all_buyers, all_lenders):
                 print(f"Rejected Offer: Lender {offers[0]}. Verification delay too large")
         current_buyer.offer = temp_offers
         if current_buyer.offer:
-            accepted_offer = min(current_buyer.offer, key=ret_2nd_ele)
+            accepted_offer = offer_accept(current_buyer.offer)
             print(f"Accepted offer: Lender {accepted_offer[0]}. Monthly payments of £{round(accepted_offer[1], 2)}.")
             current_buyer.offer = accepted_offer
             lender = all_lenders[accepted_offer[0]]
-            lender.current_loan += current_buyer.asset
+            lender.loan_out_sum -= current_buyer.asset
         print(f"")
+
+
+def offer_accept(offers):
+    monthly = []
+    for offer in offers:
+        monthly.append(offer[1])
+    minimum = min(monthly)
+    offer_list = [i for i, v in enumerate(monthly) if v == minimum]
+    x = np.random.choice(offer_list)
+    accepted_offer = offers[x]
+    return accepted_offer
 
 
 def loan_payments(month, all_buyers, all_lenders):
@@ -311,15 +265,15 @@ def loan_payments(month, all_buyers, all_lenders):
             lender = all_lenders[payee.offer[0]]
             payee.pay_loan(month, lender)
     for lender in all_lenders:
-        lender.current_lending = lender.current_loan - lender.profit
+        lender.current_lending = lender.loan_out_sum + lender.monthly_sum
         print(f"Lender {lender.num}: Profit/Loss/Collateral" +
-              Fore.GREEN + f" +£{round(lender.profit, 2):,}" + Style.RESET_ALL + f" / " +
+              Fore.GREEN + f" +£{round(lender.monthly_sum, 2):,}" + Style.RESET_ALL + f" / " +
               Fore.RED + f"-£{round(lender.loss, 2):,}" + Style.RESET_ALL +
-              f" / £{round(lender.collateral, 2):,}")
-        print(f"Total amount borrowed by customers: £{lender.current_loan:,}")
+              f" / £{round(lender.collateral_sum, 2):,}")
+        print(f"Total amount borrowed by customers: £{lender.loan_out_sum:,}")
         print(f"Current lending: £{round(lender.current_lending, 2):,}")
         print(f"")
-        lender.profit_timeline.append(lender.profit)
+        lender.profit_timeline.append(lender.monthly_sum)
 
 
 def simulation(sim_time, num_customers):
@@ -330,9 +284,10 @@ def simulation(sim_time, num_customers):
     # average_all = np.zeros((NUM_ITER, NUM_SIMS))
     # final_ratios = np.zeros(NUM_SIMS)
     for j in range(NUM_ITER):
-        final_revenue = np.zeros((NUM_SIMS, 7))
-        final_loss = np.zeros((NUM_SIMS, 7))
-        final_collateral = np.zeros((NUM_SIMS, 7))
+        final_loaned_out = np.zeros((NUM_SIMS, 7))
+        final_monthly_sum = np.zeros((NUM_SIMS, 7))
+        final_collateral_sum = np.zeros((NUM_SIMS, 7))
+        final_profit = np.zeros((NUM_SIMS, 7))
         for i in range(NUM_SIMS):
             ALL_BUYERS, ALL_LENDERS = [], []
             lender_setup(i, MARKET_VALUE)
@@ -354,10 +309,13 @@ def simulation(sim_time, num_customers):
                     print(f"")
                 loan_payments(t, ALL_BUYERS, ALL_LENDERS)
             for k in range(len(ALL_LENDERS)):
-                final_revenue[i][k] = ALL_LENDERS[k].profit - ALL_LENDERS[k].current_loan
-                final_loss[i][k] = ALL_LENDERS[k].loss
-                final_collateral[i][k] = ALL_LENDERS[k].collateral
-        plot_performance(final_revenue, final_loss, final_collateral)
+                final_loaned_out[i][k] = abs(ALL_LENDERS[k].loan_out_sum)
+                final_monthly_sum[i][k] = ALL_LENDERS[k].monthly_sum
+                final_collateral_sum[i][k] = ALL_LENDERS[k].collateral_sum
+                final_profit[i][k] = ALL_LENDERS[k].loan_out_sum + ALL_LENDERS[k].monthly_sum + \
+                                     ALL_LENDERS[k].collateral_sum
+                # final_collateral[i][k] = ALL_LENDERS[k].collateral_sum
+        plot_performance(final_loaned_out, final_monthly_sum, final_collateral_sum, final_profit)
         #     revenue[i] = ALL_LENDERS[0].profit_timeline
         #     ratios[i] = ALL_LENDERS[0].profit_timeline / ALL_LENDERS[0].current_loan
         #     final_revenues[i] = revenue[i, -1]
